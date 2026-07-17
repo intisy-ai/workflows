@@ -1,0 +1,38 @@
+name: Merge to Experimental
+
+# Reusable: called by a repo's promote-experimental.yml when a NON-v tag is pushed (typically on a
+# feature/* branch). Merges the tagged commit into the repo's experimental branch (creating it from
+# the tagged commit if it does not exist yet). Uses the built-in GITHUB_TOKEN (branches are
+# unprotected across the org); README.md conflicts auto-resolve to experimental's copy.
+on:
+  workflow_call: {}
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Merge tagged commit into experimental
+        run: |
+          git fetch origin
+          if git ls-remote --exit-code --heads origin experimental >/dev/null 2>&1; then
+            git checkout experimental
+          else
+            git checkout -b experimental
+          fi
+          if ! git merge --no-ff "$GITHUB_SHA" -m "Automated merge from tag ${GITHUB_REF_NAME} into experimental"; then
+            echo "Merge conflict, auto-resolving README.md to experimental's copy..."
+            git checkout experimental -- README.md 2>/dev/null || git rm README.md 2>/dev/null || true
+            git add -A
+            git commit --no-edit
+          fi
+          git push origin experimental

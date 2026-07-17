@@ -1,0 +1,35 @@
+name: Merge to Main
+
+# Reusable: called by a repo's promote-main.yml when a v* tag is pushed (a release, cut from
+# experimental). Merges the tagged commit into main (the release branch). Uses the built-in
+# GITHUB_TOKEN (unprotected branches); README.md conflicts auto-resolve to main's copy. The jar/
+# npm publish + README regeneration are triggered separately by the same v* tag push in the repo's
+# own build/publish workflow -- not here.
+on:
+  workflow_call: {}
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Merge tagged commit into main
+        run: |
+          git fetch origin
+          git checkout main
+          if ! git merge --no-ff "$GITHUB_SHA" -m "Automated merge from tag ${GITHUB_REF_NAME} into main"; then
+            echo "Merge conflict, auto-resolving README.md to main's copy..."
+            git checkout main -- README.md 2>/dev/null || git rm README.md 2>/dev/null || true
+            git add -A
+            git commit --no-edit
+          fi
+          git push origin main
