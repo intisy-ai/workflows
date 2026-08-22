@@ -9,6 +9,6 @@ jobs:
   invariants:
     permissions:
       contents: read
-    uses: intisy-ai/workflows/.github/workflows/gate.yml@main
+    uses: ./.github/workflows/gate.yml
     secrets:
       envPAT: ${{ secrets.PAT }}
