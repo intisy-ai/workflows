@@ -88,6 +88,12 @@ jobs:
                 fi
               done
           find tree -maxdepth 2 -mindepth 2 -type d | sort
+          expected=$(node -e 'console.log(require("./layout.json").length)')
+          actual=$(find tree -maxdepth 2 -mindepth 2 -type d | wc -l)
+          if [ "$actual" -ne "$expected" ]; then
+            echo "::error::Cloned $actual of $expected repositories, so the gates would run on an incomplete tree and could pass by omission."
+            exit 1
+          fi
 
       - name: Run the invariant gates
         env:
