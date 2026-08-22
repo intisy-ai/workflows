@@ -1,0 +1,89 @@
+name: Ecosystem invariants
+
+on:
+  workflow_call:
+    inputs:
+      tool_repository:
+        description: 'owner/name of the repo holding the gate tool'
+        required: false
+        type: string
+        default: 'intisy-ai/npm-dual-publish'
+      tool_ref:
+        description: 'Ref of the tool repository; empty takes its default branch'
+        required: false
+        type: string
+        default: ''
+      clone_ref:
+        description: 'Branch to clone each ecosystem repo at; empty takes each default branch'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      envPAT:
+        description: 'Token the clones and the GitHub metadata reads are made with'
+        required: false
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the gate tool
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.tool_repository }}
+          ref: ${{ inputs.tool_ref }}
+          path: tool
+          submodules: recursive
+          token: ${{ secrets.envPAT || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build the gate tool
+        working-directory: tool
+        run: |
+          npm install
+          npm run build
+
+      # The gates read cross-repo references, so they need the whole ecosystem laid out the way the
+      # taxonomy declares it. No single repo's checkout can satisfy them.
+      - name: Clone the ecosystem
+        env:
+          GH_TOKEN: ${{ secrets.envPAT || github.token }}
+          CLONE_REF: ${{ inputs.clone_ref }}
+        run: |
+          mkdir -p tree
+          node tool/dist/cli.js repo-meta layout --json > layout.json
+          node -e 'for (const e of require("./layout.json")) console.log(e.dir + " " + e.repo)' \
+            | while read -r dir repo; do
+                mkdir -p "tree/$dir"
+                if [ -n "$CLONE_REF" ]; then
+                  gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- --branch "$CLONE_REF" --recurse-submodules \
+                    || echo "::warning::skipped intisy-ai/$repo at $CLONE_REF"
+                else
+                  gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- --recurse-submodules \
+                    || echo "::warning::skipped intisy-ai/$repo"
+                fi
+              done
+          find tree -maxdepth 2 -mindepth 2 -type d | sort
+
+      - name: Run the invariant gates
+        env:
+          GH_TOKEN: ${{ secrets.envPAT || github.token }}
+        run: |
+          failed=""
+          for gate in "layer-check" "agnosticism-check" "workflow check" "repo-meta check" "repo-meta taxonomy"; do
+            echo "::group::$gate"
+            if node tool/dist/cli.js $gate --root tree; then
+              echo "$gate: ok"
+            else
+              failed="$failed $gate"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::gates failed:$failed"
+            exit 1
+          fi

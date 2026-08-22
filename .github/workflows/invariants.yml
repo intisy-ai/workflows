@@ -1,0 +1,14 @@
+name: Invariants
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+
+jobs:
+  invariants:
+    permissions:
+      contents: read
+    uses: intisy-ai/workflows/.github/workflows/gate.yml@main
+    secrets:
+      envPAT: ${{ secrets.PAT }}
