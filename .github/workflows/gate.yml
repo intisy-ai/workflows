@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: ''
+      timeout_minutes:
+        description: 'Job timeout; raise it if the ecosystem sweep outgrows it'
+        required: false
+        type: number
+        default: 45
     secrets:
       envPAT:
         description: 'Token the clones and the GitHub metadata reads are made with'
@@ -26,13 +31,19 @@ on:
 jobs:
   invariants:
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:
       - name: Require a token that can read the ecosystem
         env:
           PAT: ${{ secrets.envPAT }}
+          GH_TOKEN: ${{ secrets.envPAT }}
         run: |
           if [ -z "$PAT" ]; then
             echo "::error::This gate reads other repositories, several of which are private, so the job token is not sufficient. Pass a PAT with repo read scope as the envPAT secret."
+            exit 1
+          fi
+          if ! gh repo view "${{ inputs.tool_repository }}" --json name >/dev/null 2>&1; then
+            echo "::error::The envPAT secret cannot read ${{ inputs.tool_repository }}. Check that the token has repo read scope and, if the org uses SAML, that it is SSO-authorized."
             exit 1
           fi
 
