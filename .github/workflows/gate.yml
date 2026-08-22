@@ -27,6 +27,15 @@ jobs:
   invariants:
     runs-on: ubuntu-latest
     steps:
+      - name: Require a token that can read the ecosystem
+        env:
+          PAT: ${{ secrets.envPAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::error::This gate reads other repositories, several of which are private, so the job token is not sufficient. Pass a PAT with repo read scope as the envPAT secret."
+            exit 1
+          fi
+
       - name: Checkout the gate tool
         uses: actions/checkout@v4
         with:
