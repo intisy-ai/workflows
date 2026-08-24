@@ -88,13 +88,19 @@ jobs:
           node -e 'for (const e of require("./layout.json")) console.log(e.dir + " " + e.repo)' \
             | while read -r dir repo; do
                 mkdir -p "tree/$dir"
-                if [ -n "$CLONE_REF" ]; then
-                  gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- --branch "$CLONE_REF" --recurse-submodules \
-                    || echo "::warning::skipped intisy-ai/$repo at $CLONE_REF"
-                else
-                  gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- --recurse-submodules \
-                    || echo "::warning::skipped intisy-ai/$repo"
+                if [ -n "$CLONE_REF" ] && gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- \
+                    --branch "$CLONE_REF" --recurse-submodules; then
+                  continue
                 fi
+                # A repo without that branch is judged at its default one rather than dropped: not
+                # every repo carries a development branch, and a tree missing one repo is a tree the
+                # cross-repo gates could pass by omission, which the count below refuses to allow.
+                if [ -n "$CLONE_REF" ]; then
+                  rm -rf "tree/$dir/$repo"
+                  echo "::notice::intisy-ai/$repo has no $CLONE_REF, judging its default branch"
+                fi
+                gh repo clone "intisy-ai/$repo" "tree/$dir/$repo" -- --recurse-submodules \
+                  || echo "::warning::skipped intisy-ai/$repo"
               done
           find tree -maxdepth 2 -mindepth 2 -type d | sort
           expected=$(node -e 'console.log(require("./layout.json").length)')
