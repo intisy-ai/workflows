@@ -34,6 +34,7 @@ jobs:
     timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:
       - name: Require a token that can read the ecosystem
+        id: preflight
         env:
           PAT: ${{ secrets.envPAT }}
           GH_TOKEN: ${{ secrets.envPAT }}
@@ -46,12 +47,20 @@ jobs:
             echo "::error::The envPAT secret cannot read ${{ inputs.tool_repository }}. Check that the token has repo read scope and, if the org uses SAML, that it is SSO-authorized."
             exit 1
           fi
+          # Resolved here rather than left to actions/checkout: with an empty ref the action looks
+          # the default branch up through a REST path a fine-grained token may not answer, and the
+          # run then dies with a bare "Not Found" naming no repository.
+          tool_ref="${{ inputs.tool_ref }}"
+          if [ -z "$tool_ref" ]; then
+            tool_ref=$(gh repo view "${{ inputs.tool_repository }}" --json defaultBranchRef -q .defaultBranchRef.name)
+          fi
+          echo "tool_ref=$tool_ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout the gate tool
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.tool_repository }}
-          ref: ${{ inputs.tool_ref }}
+          ref: ${{ steps.preflight.outputs.tool_ref }}
           path: tool
           submodules: recursive
           token: ${{ secrets.envPAT || github.token }}
