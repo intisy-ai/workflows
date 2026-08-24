@@ -2,6 +2,12 @@ name: Invariants
 
 on:
   workflow_dispatch:
+    inputs:
+      clone_ref:
+        description: 'Branch to judge every repo at; empty takes each default branch'
+        required: false
+        type: string
+        default: ''
   schedule:
     - cron: '0 4 * * 1'
 
@@ -10,5 +16,9 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/gate.yml
+    # Empty on the schedule, which is what judges the released state. A dispatch can point it at the
+    # development branch instead, so a violation is caught before a promotion carries it to main.
+    with:
+      clone_ref: ${{ inputs.clone_ref }}
     secrets:
       envPAT: ${{ secrets.PAT }}
