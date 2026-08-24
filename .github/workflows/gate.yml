@@ -51,9 +51,16 @@ jobs:
           # the default branch up through a REST path a fine-grained token may not answer, and the
           # run then dies with a bare "Not Found" naming no repository.
           tool_ref="${{ inputs.tool_ref }}"
+          # A gate and the tool that implements it travel together: judging a development branch
+          # with the tool from its default branch runs one set of rules against the other tree.
+          if [ -z "$tool_ref" ] && [ -n "${{ inputs.clone_ref }}" ] \
+              && gh api "repos/${{ inputs.tool_repository }}/branches/${{ inputs.clone_ref }}" >/dev/null 2>&1; then
+            tool_ref="${{ inputs.clone_ref }}"
+          fi
           if [ -z "$tool_ref" ]; then
             tool_ref=$(gh repo view "${{ inputs.tool_repository }}" --json defaultBranchRef -q .defaultBranchRef.name)
           fi
+          echo "::notice::judging with the gate tool at $tool_ref"
           echo "tool_ref=$tool_ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout the gate tool
