@@ -100,7 +100,7 @@ jobs:
           GH_TOKEN: ${{ secrets.envPAT || github.token }}
         run: |
           failed=""
-          for gate in "layer-check" "agnosticism-check" "workflow check" "repo-meta check" "repo-meta taxonomy"; do
+          for gate in "layer-check" "agnosticism-check" "plugin-linkage-check" "eol-check" "workflow check" "repo-meta check" "repo-meta taxonomy"; do
             echo "::group::$gate"
             if node tool/dist/cli.js $gate --root tree; then
               echo "$gate: ok"
