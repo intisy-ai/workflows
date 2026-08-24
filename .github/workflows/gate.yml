@@ -100,7 +100,22 @@ jobs:
           GH_TOKEN: ${{ secrets.envPAT || github.token }}
         run: |
           failed=""
-          for gate in "layer-check" "agnosticism-check" "plugin-linkage-check" "eol-check" "workflow check" "repo-meta check" "repo-meta taxonomy"; do
+          # Asked of the tool rather than listed here: this job clones the tool at its default
+          # branch, so a list written in the workflow drifts the moment a gate is added there.
+          # A tool too old to answer prints its usage instead, which the first-line check rejects.
+          gates=$(node tool/dist/cli.js gates 2>/dev/null || true)
+          case "$gates" in
+            layer-check*) ;;
+            *) gates="layer-check
+          agnosticism-check
+          workflow check
+          repo-meta check
+          repo-meta taxonomy" ;;
+          esac
+          while IFS= read -r gate; do
+            # Unquoted, so the fallback list's YAML indentation is dropped along with it.
+            gate=$(echo $gate)
+            [ -n "$gate" ] || continue
             echo "::group::$gate"
             if node tool/dist/cli.js $gate --root tree; then
               echo "$gate: ok"
@@ -108,7 +123,7 @@ jobs:
               failed="$failed $gate"
             fi
             echo "::endgroup::"
-          done
+          done <<< "$gates"
           if [ -n "$failed" ]; then
             echo "::error::gates failed:$failed"
             exit 1
