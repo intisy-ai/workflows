@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/@intisy-ai/api/schema/plugin.schema.json",
+  "id": "workflows",
+  "api": 1,
+  "repo": {
+    "role": "Shared reusable GitHub Actions workflows",
+    "category": "tool",
+    "tech": [],
+    "topics": [
+      "github-actions",
+      "ci"
+    ]
+  }
+}
